@@ -185,47 +185,40 @@ where
 }
 
 use std::ops::RangeBounds;
-macro_rules! range_std_to_sql {
-    ($ty:ty) => {
-        #[cfg(feature = "postgres_backend")]
-        impl<ST, T> ToSql<Range<ST>, Pg> for $ty
-        where
-            ST: 'static,
-            T: ToSql<ST, Pg>,
-        {
-            fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
-                to_sql(self.start_bound(), self.end_bound(), out)
-            }
-        }
-    };
+
+#[cfg(feature = "postgres_backend")]
+impl<ST, T, RB> ToSql<Range<ST>, Pg> for RB
+where
+    ST: 'static,
+    RB: RangeBounds<T>,
+    T: ToSql<ST, Pg>,
+{
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
+        to_sql(self.start_bound(), self.end_bound(), out)
+    }
 }
 
-range_std_to_sql!(std::ops::Range<T>);
-range_std_to_sql!(std::ops::RangeInclusive<T>);
-range_std_to_sql!(std::ops::RangeFrom<T>);
-range_std_to_sql!(std::ops::RangeTo<T>);
-range_std_to_sql!(std::ops::RangeToInclusive<T>);
-
-macro_rules! range_to_sql_nullable {
-    ($ty:ty) => {
-        #[cfg(feature = "postgres_backend")]
-        impl<ST, T> ToSql<Nullable<Range<ST>>, Pg> for $ty
-        where
-            ST: 'static,
-            $ty: ToSql<Range<ST>, Pg>,
-        {
-            fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
-                ToSql::<Range<ST>, Pg>::to_sql(self, out)
-            }
-        }
-    };
+#[cfg(feature = "postgres_backend")]
+impl<ST, T> ToSql<Nullable<Range<ST>>, Pg> for (Bound<T>, Bound<T>)
+where
+    ST: 'static,
+    (Bound<T>, Bound<T>): ToSql<Range<ST>, Pg>,
+{
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
+        ToSql::<Range<ST>, Pg>::to_sql(self, out)
+    }
 }
-range_to_sql_nullable!((Bound<T>, Bound<T>));
-range_to_sql_nullable!(std::ops::Range<T>);
-range_to_sql_nullable!(std::ops::RangeInclusive<T>);
-range_to_sql_nullable!(std::ops::RangeFrom<T>);
-range_to_sql_nullable!(std::ops::RangeTo<T>);
-range_to_sql_nullable!(std::ops::RangeToInclusive<T>);
+
+#[cfg(feature = "postgres_backend")]
+impl<ST, T, RB> ToSql<Nullable<Range<ST>>, Pg> for RB
+where
+    ST: 'static,
+    RB: RangeBounds<T> + ToSql<Range<ST>, Pg>,
+{
+    fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, Pg>) -> serialize::Result {
+        ToSql::<Range<ST>, Pg>::to_sql(self, out)
+    }
+}
 
 #[cfg(feature = "postgres_backend")]
 impl HasSqlType<Int4range> for Pg {
